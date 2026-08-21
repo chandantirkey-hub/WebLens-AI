@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="WebLens AI turns public webpages into structured, searchable intelligence.">
+  <title>WebLens AI | Website intelligence, instantly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header" id="top">
+      <a class="brand" href="#top" aria-label="WebLens AI home"><span class="brand-mark">W</span><span>WebLens <em>AI</em></span></a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#samples">Explore samples</a>
+        <a href="#workflow">How it works</a>
+        <a href="#research">My research</a>
+      </nav>
+      <a class="header-cta" href="#analyser">Analyse a website <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main>
+      <section class="hero section-wrap" id="analyser">
+        <div class="hero-copy reveal">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> Website intelligence, without the busywork</p>
+          <h1>Look closer.<br><span>Understand faster.</span></h1>
+          <p class="hero-lede">Turn any public webpage into structured, searchable intelligence. WebLens reads between the lines so your next insight is never buried in a browser tab.</p>
+          <div class="trust-line"><span class="mini-avatars"><i>R</i><i>S</i><i>A</i></span><span>Built for researchers, strategists &amp; curious minds</span></div>
+        </div>
+        <div class="analyser-panel reveal delay-1">
+          <div class="panel-label"><span class="pulse-dot"></span> Try it live</div>
+          <h2>What should we look into?</h2>
+          <p>Paste a public URL. We will turn the page into a clear point of view.</p>
+          <form id="analyser-form" class="url-form" novalidate>
+            <label for="url-input">Website URL</label>
+            <div class="input-row"><input id="url-input" name="url" type="url" placeholder="https://example.com" autocomplete="url" required><button type="submit">Analyse <span aria-hidden="true">→</span></button></div>
+            <div class="form-meta"><span id="usage-count">5 free analyses available</span><span>No login required</span></div>
+            <p class="form-error" id="form-error" role="alert"></p>
+          </form>
+          <div class="analysis-status" id="analysis-status" hidden><div class="status-head"><span>Analysing webpage</span><strong id="status-percent">0%</strong></div><div class="progress-track"><span id="progress-bar"></span></div><div class="status-steps"><span class="active" data-step="0">Validate</span><span data-step="1">Read</span><span data-step="2">Understand</span><span data-step="3">Prepare</span></div></div>
+        </div>
+        <div class="hero-note"><span>01</span><span>From webpage<br>to wisdom</span></div>
+      </section>
+
+      <section class="sample-section section-wrap" id="samples">
+        <div class="section-heading reveal"><div><p class="eyebrow">A head start for your research</p><h2>See WebLens in action<span class="accent">.</span></h2></div><p>Explore a few pages we have already made sense of. Every card is a demo analysis, ready to open.</p></div>
+        <div class="sample-grid" id="sample-grid"></div>
+      </section>
+
+      <section class="workflow-section" id="workflow"><div class="section-wrap"><div class="section-heading inverse reveal"><div><p class="eyebrow">Four steps. One clearer view.</p><h2>From open tab<br>to <span>aha moment.</span></h2></div><p>WebLens combines extraction and understanding into one calm research workflow.</p></div><div class="workflow-grid"><article><span class="step-number">01</span><h3>Enter URL</h3><p>Point WebLens at any public webpage worth understanding.</p></article><article><span class="step-number">02</span><h3>Scrape</h3><p>Useful content, metadata, headings and links are brought into focus.</p></article><article><span class="step-number">03</span><h3>Understand</h3><p>AI turns the page into summaries, topics and useful answers.</p></article><article><span class="step-number">04</span><h3>Remember</h3><p>Save the signal so it is ready when your research needs it.</p></article></div></div></section>
+
+      <section class="research-section section-wrap" id="research"><div class="research-copy reveal"><p class="eyebrow">Your research, with a memory</p><h2>Good insights deserve<br>a place to <span>stay.</span></h2><p>Save the pages that matter and come back to them with context intact. Your research shelf is ready for the next question.</p><button class="secondary-button" id="research-button">Open my research <span aria-hidden="true">→</span></button></div><div class="research-art reveal delay-1"><div class="art-window"><div class="art-window-top"><span></span><span></span><span></span><small>MY RESEARCH / 04</small></div><div class="art-lines"><i></i><i></i><i></i><i></i></div><div class="art-highlight">saved<br><b>for later</b></div></div></div></section>
+    </main>
+
+    <footer class="site-footer section-wrap"><a class="brand" href="#top"><span class="brand-mark">W</span><span>WebLens <em>AI</em></span></a><span>Turn any page into a point of view.</span><span>© 2026 WebLens AI</span></footer>
+  </div>
+  <div class="modal-backdrop" id="detail-modal" hidden><article class="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title"><button class="modal-close" id="modal-close" aria-label="Close analysis">×</button><div id="detail-content"></div></article></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

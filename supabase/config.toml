@@ -1,0 +1,5 @@
+# Project ID is supplied when linking this folder to your Supabase project.
+# Run: supabase link --project-ref YOUR_PROJECT_REF
+
+[functions.analyze-website]
+verify_jwt = false
