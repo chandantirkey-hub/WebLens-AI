@@ -27,4 +27,10 @@ The browser posts `{ "url": "https://example.com" }` to `/functions/v1/analyze-w
 
 The secure Supabase Edge Function in `supabase/functions/analyze-website/index.ts` is the server-side implementation for Firecrawl and OpenAI. Secrets remain in Supabase and are never shipped to the browser.
 
-The browser counter is intentionally a hackathon-only convenience, not production quota enforcement.
+The browser counter is intentionally a hackathon-only convenience, not production quota enforcement. The result modal supports browser-generated PDF printing and Word-compatible `.doc` download.
+
+## Email OTP and paid access
+
+Supabase Auth email OTP is wired to the public project anon key in `index.html`. Enable email OTP in Supabase Authentication settings, then configure the email provider. The free counter opens the OTP sign-up dialog after five analyses.
+
+The checkout button is intentionally a placeholder. OpenAI API keys pay for AI requests; they cannot process customer payments. Connect a payment provider through a server-side checkout function before offering paid plans.
