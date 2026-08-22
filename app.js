@@ -177,7 +177,12 @@ $('#signup-form').addEventListener('submit', async event => {
   if (password.length < 8) { error.textContent = 'Password must be at least 8 characters.'; return; }
   if (password !== confirm) { error.textContent = 'Passwords do not match.'; return; }
   const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-  if (!response.ok) { const body = await response.json().catch(() => ({})); error.textContent = body.msg || body.error_description || 'We could not create your account. Please try again.'; return; }
+  if (!response.ok) {
+    let message = `We could not create your account (HTTP ${response.status}).`;
+    try { const body = await response.json(); message = body.msg || body.error_description || body.error || message; } catch { /* response was not JSON — likely a paused project or wrong URL */ }
+    error.textContent = message;
+    return;
+  }
   const body = await response.json();
   if (body.access_token) {
     // Email confirmation is disabled on the project, so sign-up returns a session immediately.
