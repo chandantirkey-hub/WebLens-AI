@@ -176,8 +176,7 @@ $('#signup-form').addEventListener('submit', async event => {
   const confirm = $('#signup-confirm').value;
   if (password.length < 8) { error.textContent = 'Password must be at least 8 characters.'; return; }
   if (password !== confirm) { error.textContent = 'Passwords do not match.'; return; }
-  const data = { mobile: $('#signup-mobile').value.trim() || null, address: $('#signup-address').value.trim() || null, pincode: $('#signup-pincode').value.trim() || null, state: $('#signup-state').value.trim() || null, country: $('#signup-country').value.trim() || null };
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, data }) });
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
   if (!response.ok) { const body = await response.json().catch(() => ({})); error.textContent = body.msg || body.error_description || 'We could not create your account. Please try again.'; return; }
   const body = await response.json();
   if (body.access_token) {
