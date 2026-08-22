@@ -31,9 +31,9 @@ The browser counter is intentionally a hackathon-only convenience, not productio
 
 ## Email OTP, passwords and registered accounts
 
-Supabase Auth is wired to the public project anon key in `index.html`. Enable **Email OTP** in Supabase Authentication settings and configure the email provider so confirmation emails deliver a 6-digit code and recovery emails deliver a reset link.
+Supabase Auth is wired to the public project anon key in `index.html`. In Supabase Authentication → Providers → Email, **disable "Confirm email"** so sign-up returns a session immediately with no verification step. Recovery emails still deliver a reset link.
 
-- **Sign up**: email (required) + password, plus optional address, mobile, PIN code, state and country. A verification code is emailed; entering it completes registration and creates a row in `public.profiles` (via the `on_auth_user_created` trigger in `supabase/schema.sql`) with 5 additional free analyses.
+- **Sign up**: email (required) + password, plus optional address, mobile, PIN code, state and country. The account is created and signed in immediately — no OTP/verification code required. This creates a row in `public.profiles` (via the `on_auth_user_created` trigger in `supabase/schema.sql`) with 5 additional free analyses.
 - **Sign in**: email + password.
 - **Forgot password**: enter your email, receive a reset **link** (redirects back to this page with a `#access_token=...&type=recovery` fragment), then set a new password directly — no code entry required. Passwords are hashed and stored by Supabase Auth; the app never sees or stores raw passwords itself.
 - **Free analyses**: anonymous visitors get 5 free analyses (browser-only counter). Registered users get **5 more**, tracked server-side in `profiles.trial_remaining`, capped at **2 analyses per day** regardless of remaining balance.

@@ -179,17 +179,15 @@ $('#signup-form').addEventListener('submit', async event => {
   const data = { mobile: $('#signup-mobile').value.trim() || null, address: $('#signup-address').value.trim() || null, pincode: $('#signup-pincode').value.trim() || null, state: $('#signup-state').value.trim() || null, country: $('#signup-country').value.trim() || null };
   const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, data }) });
   if (!response.ok) { const body = await response.json().catch(() => ({})); error.textContent = body.msg || body.error_description || 'We could not create your account. Please try again.'; return; }
-  $('#signup-otp-label').hidden = false; $('#signup-otp').hidden = false; $('#signup-verify').hidden = false;
-  error.textContent = 'Code sent. Check your email to verify and finish registration.';
-});
-$('#signup-verify').addEventListener('click', async () => {
-  const error = $('#signup-error'); error.textContent = '';
-  const email = $('#signup-email').value.trim(); const token = $('#signup-otp').value.trim();
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, token, type: 'signup' }) });
-  if (!response.ok) { error.textContent = 'That code is not valid or has expired.'; return; }
   const body = await response.json();
-  setStoredSession({ access_token: body.access_token, refresh_token: body.refresh_token, expires_at: body.expires_at, user: body.user });
-  await fetchProfile(); updateAccountUI(); updateUsage(); closeAccountModal();
+  if (body.access_token) {
+    // Email confirmation is disabled on the project, so sign-up returns a session immediately.
+    setStoredSession({ access_token: body.access_token, refresh_token: body.refresh_token, expires_at: body.expires_at, user: body.user });
+    await fetchProfile(); updateAccountUI(); updateUsage(); closeAccountModal();
+  } else {
+    error.textContent = 'Account created. You can now sign in.';
+    switchAccountTab('signin');
+  }
 });
 $('#signin-form').addEventListener('submit', async event => {
   event.preventDefault();
