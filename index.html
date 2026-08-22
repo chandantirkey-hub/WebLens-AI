@@ -115,13 +115,18 @@
       <form id="forgot-form" class="account-form" data-panel="forgot" hidden>
         <label for="forgot-email">Email address</label>
         <input id="forgot-email" type="email" placeholder="you@example.com" required>
-        <button class="account-action" type="submit">Send reset code <span aria-hidden="true">→</span></button>
-        <label for="forgot-otp" id="forgot-otp-label" hidden>One-time code sent to your email</label>
-        <input id="forgot-otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" hidden>
-        <label for="forgot-password" id="forgot-password-label" hidden>New password</label>
-        <input id="forgot-password" type="password" placeholder="At least 8 characters" minlength="8" hidden>
-        <button class="account-action" id="forgot-verify" type="button" hidden>Set new password <span aria-hidden="true">→</span></button>
+        <button class="account-action" type="submit">Send reset link <span aria-hidden="true">→</span></button>
         <p class="form-error" id="forgot-error" role="alert"></p>
+      </form>
+
+      <form id="reset-form" class="account-form" data-panel="reset" hidden>
+        <p>You followed a password reset link. Choose a new password below.</p>
+        <label for="reset-password">New password</label>
+        <input id="reset-password" type="password" placeholder="At least 8 characters" minlength="8" required>
+        <label for="reset-confirm">Confirm new password</label>
+        <input id="reset-confirm" type="password" placeholder="Re-enter password" minlength="8" required>
+        <button class="account-action" type="submit">Set new password <span aria-hidden="true">→</span></button>
+        <p class="form-error" id="reset-error" role="alert"></p>
       </form>
 
       <div class="payment-note"><strong>After verification</strong><span>Paid plans must use a secure payment provider. Your OpenAI key is never used for billing or exposed in this page.</span><button type="button" id="payment-button">Continue to secure checkout</button></div>

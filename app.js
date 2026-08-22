@@ -97,16 +97,13 @@ function renderSamples() {
   sampleGrid.addEventListener('click', event => { const button = event.target.closest('[data-sample]'); if (button) openDetail(samples[Number(button.dataset.sample)]); });
 }
 function openDetail(sample, live = false) {
-  detailContent.innerHTML = `<div class="detail-toolbar"><span class="detail-kicker">${live ? 'Live analysis' : 'Demo analysis'} / ${sample.type}</span><div><button class="export-button" id="pdf-export" type="button">Download PDF</button><button class="export-button" id="word-export" type="button">Download Word</button></div></div><h2 id="detail-title">${sample.title}</h2><p class="detail-url">${sample.url ?? `https://${sample.domain}`}</p><div class="detail-block"><h3>AI summary</h3><p>${sample.summary}</p></div><div class="detail-block"><h3>Key points</h3><ul>${sample.points.map(point => `<li>${point}</li>`).join('')}</ul></div><div class="detail-block"><h3>Key topics</h3><div class="topics">${sample.topics.map(topic => `<span class="topic">${topic}</span>`).join('')}</div></div><div class="detail-block"><h3>Target audience</h3><p>${sample.audience}</p></div><div class="detail-block"><h3>Page structure &amp; links</h3><p>${sample.headings.join(' · ')}<br><strong>${sample.links} useful links extracted</strong></p></div><div class="detail-block"><h3>Ask this webpage</h3><form class="question-form" id="question-form"><div class="input-row"><input id="question-input" placeholder="What is this webpage mainly about?" required><button>Ask <span aria-hidden="true">→</span></button></div><p class="answer" id="answer"></p></form></div>`;
+  detailContent.innerHTML = `<div class="detail-toolbar"><span class="detail-kicker">${live ? 'Live analysis' : 'Demo analysis'} / ${sample.type}</span><div><button class="export-button" id="pdf-export" type="button">Download PDF</button></div></div><h2 id="detail-title">${sample.title}</h2><p class="detail-url">${sample.url ?? `https://${sample.domain}`}</p><div class="detail-block"><h3>AI summary</h3><p>${sample.summary}</p></div><div class="detail-block"><h3>Key points</h3><ul>${sample.points.map(point => `<li>${point}</li>`).join('')}</ul></div><div class="detail-block"><h3>Key topics</h3><div class="topics">${sample.topics.map(topic => `<span class="topic">${topic}</span>`).join('')}</div></div><div class="detail-block"><h3>Target audience</h3><p>${sample.audience}</p></div><div class="detail-block"><h3>Page structure &amp; links</h3><p>${sample.headings.join(' · ')}<br><strong>${sample.links} useful links extracted</strong></p></div><div class="detail-block"><h3>Ask this webpage</h3><form class="question-form" id="question-form"><div class="input-row"><input id="question-input" placeholder="What is this webpage mainly about?" required><button>Ask <span aria-hidden="true">→</span></button></div><p class="answer" id="answer"></p></form></div>`;
   modal.hidden = false; document.body.style.overflow = 'hidden'; const saveButton = document.createElement('button'); saveButton.className = 'export-button'; saveButton.id = 'save-analysis'; saveButton.type = 'button'; saveButton.textContent = 'Save research'; detailContent.querySelector('.detail-toolbar > div').prepend(saveButton);
   saveButton.addEventListener('click', () => saveResearch(sample));
   $('#pdf-export').addEventListener('click', () => exportPdf(sample));
-  $('#word-export').addEventListener('click', () => exportWord(sample));
   $('#question-form').addEventListener('submit', event => { event.preventDefault(); $('#answer').textContent = `Based on this ${live ? 'live' : 'demo'} analysis: ${sample.summary}`; });
 }
-function analysisText(sample) { return `${sample.title}\n${sample.domain}\n\nAI SUMMARY\n${sample.summary}\n\nKEY POINTS\n${sample.points.map(point => `- ${point}`).join('\n')}\n\nKEY TOPICS\n${sample.topics.join(', ')}\n\nTARGET AUDIENCE\n${sample.audience}\n\nPAGE STRUCTURE\n${sample.headings.join(' | ')}\n\nLINKS EXTRACTED\n${sample.links}`; }
 function downloadBlob(content, type, filename) { const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([content], { type })); link.download = filename; link.click(); URL.revokeObjectURL(link.href); }
-function exportWord(sample) { const html = `<html><head><meta charset="utf-8"></head><body><h1>${sample.title}</h1><p>${sample.domain}</p><h2>AI Summary</h2><p>${sample.summary}</p><h2>Key Points</h2><ul>${sample.points.map(point => `<li>${point}</li>`).join('')}</ul><h2>Key Topics</h2><p>${sample.topics.join(', ')}</p><h2>Target Audience</h2><p>${sample.audience}</p><h2>Page Structure</h2><p>${sample.headings.join(' | ')}</p></body></html>`; downloadBlob(html, 'application/msword', `${sample.domain}-weblens-analysis.doc`); }
 function exportPdf(sample) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
@@ -208,26 +205,39 @@ $('#forgot-form').addEventListener('submit', async event => {
   event.preventDefault();
   const error = $('#forgot-error'); error.textContent = '';
   const email = $('#forgot-email').value.trim();
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
-  if (!response.ok) { error.textContent = 'We could not send a reset code. Please try again.'; return; }
-  $('#forgot-otp-label').hidden = false; $('#forgot-otp').hidden = false; $('#forgot-password-label').hidden = false; $('#forgot-password').hidden = false; $('#forgot-verify').hidden = false;
-  error.textContent = 'Reset code sent. Check your email.';
+  const redirectTo = `${location.origin}${location.pathname}#reset-password`;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, options: { redirect_to: redirectTo } }) });
+  if (!response.ok) { error.textContent = 'We could not send a reset link. Please try again.'; return; }
+  error.textContent = 'Reset link sent. Check your email and open it on this device.';
 });
-$('#forgot-verify').addEventListener('click', async () => {
-  const error = $('#forgot-error'); error.textContent = '';
-  const email = $('#forgot-email').value.trim(); const token = $('#forgot-otp').value.trim(); const newPassword = $('#forgot-password').value;
+$('#reset-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const error = $('#reset-error'); error.textContent = '';
+  const newPassword = $('#reset-password').value; const confirm = $('#reset-confirm').value;
   if (newPassword.length < 8) { error.textContent = 'Password must be at least 8 characters.'; return; }
-  const verifyResponse = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, token, type: 'recovery' }) });
-  if (!verifyResponse.ok) { error.textContent = 'That code is not valid or has expired.'; return; }
-  const verifyBody = await verifyResponse.json();
-  const updateResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, { method: 'PUT', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${verifyBody.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: newPassword }) });
-  if (!updateResponse.ok) { error.textContent = 'We could not set the new password. Please try again.'; return; }
-  setStoredSession({ access_token: verifyBody.access_token, refresh_token: verifyBody.refresh_token, expires_at: verifyBody.expires_at, user: verifyBody.user });
+  if (newPassword !== confirm) { error.textContent = 'Passwords do not match.'; return; }
+  const updateResponse = await authFetch('/auth/v1/user', { method: 'PUT', body: JSON.stringify({ password: newPassword }) });
+  if (!updateResponse.ok) { error.textContent = 'We could not set the new password. Please try again — the link may have expired.'; return; }
   await fetchProfile(); updateAccountUI(); updateUsage();
-  error.textContent = ''; switchAccountTab('signin'); closeAccountModal();
+  error.textContent = ''; closeAccountModal();
 });
 $('#payment-button').addEventListener('click', () => { alert('Payments require a dedicated provider such as Stripe. An OpenAI API key is used for AI analysis, not payment processing.'); });
 
+/* ---------- Password-reset link landing (Supabase redirects with #access_token=...&type=recovery) ---------- */
+function decodeJwtUser(token) {
+  try { const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); return { id: payload.sub, email: payload.email }; }
+  catch { return null; }
+}
+function handleRecoveryRedirect() {
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if (hashParams.get('type') !== 'recovery' || !hashParams.get('access_token')) return;
+  const accessToken = hashParams.get('access_token');
+  setStoredSession({ access_token: accessToken, refresh_token: hashParams.get('refresh_token'), expires_at: Number(hashParams.get('expires_at')), user: decodeJwtUser(accessToken) });
+  history.replaceState(null, '', location.pathname + location.search);
+  openAccountModal('reset');
+}
+
 renderSamples(); renderLibrary(); updateUsage();
+handleRecoveryRedirect();
 restoreSession().then(updateUsage);
 

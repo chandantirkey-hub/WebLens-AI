@@ -31,14 +31,15 @@ The browser counter is intentionally a hackathon-only convenience, not productio
 
 ## Email OTP, passwords and registered accounts
 
-Supabase Auth is wired to the public project anon key in `index.html`. Enable **Email OTP** in Supabase Authentication settings and configure the email provider so confirmation, sign-up and password-recovery emails deliver a 6-digit code.
+Supabase Auth is wired to the public project anon key in `index.html`. Enable **Email OTP** in Supabase Authentication settings and configure the email provider so confirmation emails deliver a 6-digit code and recovery emails deliver a reset link.
 
 - **Sign up**: email (required) + password, plus optional address, mobile, PIN code, state and country. A verification code is emailed; entering it completes registration and creates a row in `public.profiles` (via the `on_auth_user_created` trigger in `supabase/schema.sql`) with 5 additional free analyses.
 - **Sign in**: email + password.
-- **Forgot password**: email → one-time code → new password, using Supabase's `recover`/`verify`/`user` endpoints. Passwords are hashed and stored by Supabase Auth; the app never sees or stores raw passwords itself.
+- **Forgot password**: enter your email, receive a reset **link** (redirects back to this page with a `#access_token=...&type=recovery` fragment), then set a new password directly — no code entry required. Passwords are hashed and stored by Supabase Auth; the app never sees or stores raw passwords itself.
 - **Free analyses**: anonymous visitors get 5 free analyses (browser-only counter). Registered users get **5 more**, tracked server-side in `profiles.trial_remaining`, capped at **2 analyses per day** regardless of remaining balance.
 - Run `supabase/schema.sql` against your project (or `supabase db push`) to create the `profiles` table, its RLS policies and the new-user trigger before testing sign-up.
+- In Supabase Authentication → URL Configuration, add this site's URL to **Redirect URLs** so the recovery link is allowed to redirect back here.
 
-The free counter and daily cap are intentionally a hackathon-only convenience, not production quota enforcement. The result modal supports browser-generated PDF printing (with a "WebLens AI" watermark plus a report header/footer) and Word-compatible `.doc` download.
+The free counter and daily cap are intentionally a hackathon-only convenience, not production quota enforcement. The result modal supports browser-generated PDF printing only, with a "WebLens AI" watermark plus a report header/footer.
 
 The checkout button is intentionally a placeholder. OpenAI API keys pay for AI requests; they cannot process customer payments. Connect a payment provider through a server-side checkout function before offering paid plans.
