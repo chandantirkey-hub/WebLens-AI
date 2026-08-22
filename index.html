@@ -21,7 +21,11 @@
         <a href="#workflow">How it works</a>
         <a href="#research">My research</a>
       </nav>
-      <a class="header-cta" href="#analyser">Analyse a website <span aria-hidden="true">↗</span></a>
+      <div class="header-actions">
+        <span class="account-status" id="account-status" hidden><span id="account-status-email"></span><button type="button" id="signout-button">Sign out</button></span>
+        <button class="header-cta account-cta" id="signin-button" type="button">Sign in</button>
+        <a class="header-cta" href="#analyser">Analyse a website <span aria-hidden="true">↗</span></a>
+      </div>
     </header>
 
     <main>
@@ -62,7 +66,67 @@
     <footer class="site-footer section-wrap"><a class="brand" href="#top"><span class="brand-mark">W</span><span>WebLens <em>AI</em></span></a><span>Turn any page into a point of view.</span><span>© 2026 WebLens AI</span></footer>
   </div>
   <div class="modal-backdrop" id="detail-modal" hidden><article class="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title"><button class="modal-close" id="modal-close" aria-label="Close analysis">×</button><div id="detail-content"></div></article></div>
-  <div class="modal-backdrop" id="account-modal" hidden><article class="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="modal-close" id="account-close" aria-label="Close account dialog">×</button><span class="detail-kicker">Continue your research</span><h2 id="account-title">Your free analyses are complete.</h2><p>Sign up with your email to keep using WebLens. We will send a one-time code to verify your address.</p><form id="otp-form"><label for="email-input">Email address</label><input id="email-input" type="email" placeholder="you@example.com" required><button class="account-action" type="submit">Send one-time code <span aria-hidden="true">→</span></button><label for="otp-input" id="otp-label" hidden>One-time code</label><input id="otp-input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" hidden><button class="account-action" id="verify-otp" type="button" hidden>Verify email <span aria-hidden="true">→</span></button><p class="form-error" id="account-error" role="alert"></p></form><div class="payment-note"><strong>After verification</strong><span>Paid plans must use a secure payment provider. Your OpenAI key is never used for billing or exposed in this page.</span><button type="button" id="payment-button">Continue to secure checkout</button></div></article></div>
+  <div class="modal-backdrop" id="account-modal" hidden>
+    <article class="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title">
+      <button class="modal-close" id="account-close" aria-label="Close account dialog">×</button>
+      <span class="detail-kicker">Continue your research</span>
+      <h2 id="account-title">Create your free account</h2>
+      <p id="account-intro">Register with your email to unlock 5 more free analyses. Only email is required — every other field is optional.</p>
+      <div class="account-tabs" role="tablist">
+        <button type="button" class="account-tab active" data-tab="signup" role="tab" aria-selected="true">Sign up</button>
+        <button type="button" class="account-tab" data-tab="signin" role="tab" aria-selected="false">Sign in</button>
+        <button type="button" class="account-tab" data-tab="forgot" role="tab" aria-selected="false">Forgot password</button>
+      </div>
+
+      <form id="signup-form" class="account-form" data-panel="signup">
+        <label for="signup-email">Email address <em>(required)</em></label>
+        <input id="signup-email" type="email" placeholder="you@example.com" required>
+        <label for="signup-password">Create password <em>(required)</em></label>
+        <input id="signup-password" type="password" placeholder="At least 8 characters" minlength="8" required>
+        <label for="signup-confirm">Confirm password <em>(required)</em></label>
+        <input id="signup-confirm" type="password" placeholder="Re-enter password" minlength="8" required>
+        <div class="optional-fields">
+          <p class="optional-heading">Optional details</p>
+          <div class="field-grid">
+            <div><label for="signup-mobile">Mobile number</label><input id="signup-mobile" type="tel" placeholder="Optional"></div>
+            <div><label for="signup-pincode">PIN code</label><input id="signup-pincode" type="text" placeholder="Optional"></div>
+            <div><label for="signup-state">State</label><input id="signup-state" type="text" placeholder="Optional"></div>
+            <div><label for="signup-country">Country</label><input id="signup-country" type="text" placeholder="Optional"></div>
+          </div>
+          <label for="signup-address">Address</label>
+          <input id="signup-address" type="text" placeholder="Optional">
+        </div>
+        <button class="account-action" type="submit">Send verification code <span aria-hidden="true">→</span></button>
+        <label for="signup-otp" id="signup-otp-label" hidden>One-time code sent to your email</label>
+        <input id="signup-otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" hidden>
+        <button class="account-action" id="signup-verify" type="button" hidden>Verify &amp; create account <span aria-hidden="true">→</span></button>
+        <p class="form-error" id="signup-error" role="alert"></p>
+      </form>
+
+      <form id="signin-form" class="account-form" data-panel="signin" hidden>
+        <label for="signin-email">Email address</label>
+        <input id="signin-email" type="email" placeholder="you@example.com" required>
+        <label for="signin-password">Password</label>
+        <input id="signin-password" type="password" placeholder="Your password" required>
+        <button class="account-action" type="submit">Sign in <span aria-hidden="true">→</span></button>
+        <p class="form-error" id="signin-error" role="alert"></p>
+      </form>
+
+      <form id="forgot-form" class="account-form" data-panel="forgot" hidden>
+        <label for="forgot-email">Email address</label>
+        <input id="forgot-email" type="email" placeholder="you@example.com" required>
+        <button class="account-action" type="submit">Send reset code <span aria-hidden="true">→</span></button>
+        <label for="forgot-otp" id="forgot-otp-label" hidden>One-time code sent to your email</label>
+        <input id="forgot-otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" hidden>
+        <label for="forgot-password" id="forgot-password-label" hidden>New password</label>
+        <input id="forgot-password" type="password" placeholder="At least 8 characters" minlength="8" hidden>
+        <button class="account-action" id="forgot-verify" type="button" hidden>Set new password <span aria-hidden="true">→</span></button>
+        <p class="form-error" id="forgot-error" role="alert"></p>
+      </form>
+
+      <div class="payment-note"><strong>After verification</strong><span>Paid plans must use a secure payment provider. Your OpenAI key is never used for billing or exposed in this page.</span><button type="button" id="payment-button">Continue to secure checkout</button></div>
+    </article>
+  </div>
   <script>window.WEBLENS_ANALYZE_ENDPOINT = 'https://pbvfpaerwntskhccyocj.supabase.co/functions/v1/analyze-website'; window.WEBLENS_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBidmZwYWVyd250c2toY2N5b2NqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMDgxMDIsImV4cCI6MjEwMjg4NDEwMn0.9r4bgkucvcDNHVMsGcPqetmooD7L6B5tSEQsNASR7jc';</script>
   <script type="module" src="app.js?v=bb5c264"></script>
 </body>

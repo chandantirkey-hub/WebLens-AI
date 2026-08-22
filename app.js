@@ -14,9 +14,84 @@ const sampleGrid = $('#sample-grid');
 const modal = $('#detail-modal');
 const detailContent = $('#detail-content');
 const usageKey = 'weblens-free-analyses';
+const sessionKey = 'weblens-session';
+const DAILY_LIMIT = 2;
 let remaining = Number(localStorage.getItem(usageKey) ?? 5);
+let session = null;
+let profile = null;
 
-function updateUsage() { $('#usage-count').textContent = `${remaining} free ${remaining === 1 ? 'analysis' : 'analyses'} available`; }
+/* ---------- Auth / session helpers ---------- */
+function getStoredSession() { try { return JSON.parse(localStorage.getItem(sessionKey) ?? 'null'); } catch { return null; } }
+function setStoredSession(value) { session = value; if (value) localStorage.setItem(sessionKey, JSON.stringify(value)); else localStorage.removeItem(sessionKey); }
+function authFetch(path, options = {}) {
+  return fetch(`${SUPABASE_URL}${path}`, { ...options, headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}), ...(options.headers ?? {}) } });
+}
+async function fetchProfile() {
+  if (!session?.user?.id) { profile = null; return; }
+  const response = await authFetch(`/rest/v1/profiles?id=eq.${session.user.id}&select=*`);
+  if (!response.ok) { profile = null; return; }
+  const rows = await response.json();
+  profile = rows[0] ?? { id: session.user.id, trial_remaining: 5, daily_analysis_date: null, daily_analysis_count: 0 };
+}
+async function patchProfile(fields) {
+  if (!session?.user?.id) return;
+  await authFetch(`/rest/v1/profiles?id=eq.${session.user.id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(fields) });
+  profile = { ...profile, ...fields };
+}
+function updateAccountUI() {
+  const statusEl = $('#account-status');
+  const signinButton = $('#signin-button');
+  if (session?.user?.email) { statusEl.hidden = false; $('#account-status-email').textContent = session.user.email; signinButton.hidden = true; }
+  else { statusEl.hidden = true; signinButton.hidden = false; }
+}
+async function restoreSession() {
+  const stored = getStoredSession();
+  if (!stored) return;
+  if (stored.expires_at && stored.expires_at * 1000 < Date.now() && stored.refresh_token) {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: stored.refresh_token }) });
+    if (!response.ok) { setStoredSession(null); return; }
+    const refreshed = await response.json();
+    setStoredSession({ access_token: refreshed.access_token, refresh_token: refreshed.refresh_token, expires_at: refreshed.expires_at, user: refreshed.user });
+  } else {
+    session = stored;
+  }
+  await fetchProfile();
+  updateAccountUI();
+}
+
+/* ---------- Free-trial / usage rules ---------- */
+function updateUsage() {
+  const el = $('#usage-count');
+  if (session?.user && profile) {
+    const today = new Date().toISOString().slice(0, 10);
+    const usedToday = profile.daily_analysis_date === today ? profile.daily_analysis_count : 0;
+    el.textContent = `${profile.trial_remaining} registered free ${profile.trial_remaining === 1 ? 'analysis' : 'analyses'} available (${Math.max(DAILY_LIMIT - usedToday, 0)} left today)`;
+  } else {
+    el.textContent = `${remaining} free ${remaining === 1 ? 'analysis' : 'analyses'} available`;
+  }
+}
+function checkTrialAllowed() {
+  if (session?.user && profile) {
+    const today = new Date().toISOString().slice(0, 10);
+    const usedToday = profile.daily_analysis_date === today ? profile.daily_analysis_count : 0;
+    if (usedToday >= DAILY_LIMIT) return { ok: false, message: `Registered users can analyse up to ${DAILY_LIMIT} websites per day. Please try again tomorrow.` };
+    if (profile.trial_remaining < 1) return { ok: false, message: "You've used all your registered free analyses." };
+    return { ok: true };
+  }
+  if (remaining < 1) return { ok: false, message: 'You have used your 5 free analyses. Create an account to continue.', promptSignup: true };
+  return { ok: true };
+}
+async function recordAnalysisUsage() {
+  if (session?.user && profile) {
+    const today = new Date().toISOString().slice(0, 10);
+    const usedToday = profile.daily_analysis_date === today ? profile.daily_analysis_count : 0;
+    await patchProfile({ trial_remaining: profile.trial_remaining - 1, daily_analysis_date: today, daily_analysis_count: usedToday + 1 });
+  } else {
+    remaining -= 1; localStorage.setItem(usageKey, remaining);
+  }
+  updateUsage();
+}
+
 function renderSamples() {
   sampleGrid.innerHTML = samples.map((sample, index) => `<article class="sample-card reveal" style="animation-delay:${index * 70}ms"><div class="card-top"><span>${sample.domain}</span><span class="demo-badge">Demo analysis</span></div><h3>${sample.title}</h3><p class="summary">${sample.summary}</p><div class="topics">${sample.topics.map(topic => `<span class="topic">${topic}</span>`).join('')}</div><button class="card-button" data-sample="${index}">View full analysis <span aria-hidden="true">→</span></button></article>`).join('');
   sampleGrid.addEventListener('click', event => { const button = event.target.closest('[data-sample]'); if (button) openDetail(samples[Number(button.dataset.sample)]); });
@@ -32,8 +107,41 @@ function openDetail(sample, live = false) {
 function analysisText(sample) { return `${sample.title}\n${sample.domain}\n\nAI SUMMARY\n${sample.summary}\n\nKEY POINTS\n${sample.points.map(point => `- ${point}`).join('\n')}\n\nKEY TOPICS\n${sample.topics.join(', ')}\n\nTARGET AUDIENCE\n${sample.audience}\n\nPAGE STRUCTURE\n${sample.headings.join(' | ')}\n\nLINKS EXTRACTED\n${sample.links}`; }
 function downloadBlob(content, type, filename) { const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([content], { type })); link.download = filename; link.click(); URL.revokeObjectURL(link.href); }
 function exportWord(sample) { const html = `<html><head><meta charset="utf-8"></head><body><h1>${sample.title}</h1><p>${sample.domain}</p><h2>AI Summary</h2><p>${sample.summary}</p><h2>Key Points</h2><ul>${sample.points.map(point => `<li>${point}</li>`).join('')}</ul><h2>Key Topics</h2><p>${sample.topics.join(', ')}</p><h2>Target Audience</h2><p>${sample.audience}</p><h2>Page Structure</h2><p>${sample.headings.join(' | ')}</p></body></html>`; downloadBlob(html, 'application/msword', `${sample.domain}-weblens-analysis.doc`); }
-function exportPdf(sample) { const printWindow = window.open('', '_blank'); if (!printWindow) return; printWindow.document.write(`<html><head><title>WebLens Analysis - ${sample.title}</title><style>body{font-family:Arial,sans-serif;line-height:1.5;padding:40px;color:#162321}h1{font-size:28px}h2{margin-top:28px;border-top:1px solid #ddd;padding-top:12px}</style></head><body><h1>${sample.title}</h1><p>${sample.domain}</p><h2>AI Summary</h2><p>${sample.summary}</p><h2>Key Points</h2><ul>${sample.points.map(point => `<li>${point}</li>`).join('')}</ul><h2>Key Topics</h2><p>${sample.topics.join(', ')}</p><h2>Target Audience</h2><p>${sample.audience}</p><h2>Page Structure</h2><p>${sample.headings.join(' | ')}</p><script>window.onload=()=>window.print();<\/script></body></html>`); printWindow.document.close(); }
-function openAccountModal() { $('#account-modal').hidden = false; document.body.style.overflow = 'hidden'; }
+function exportPdf(sample) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+  const generatedAt = new Date().toLocaleString();
+  printWindow.document.write(`<html><head><title>WebLens Analysis - ${sample.title}</title><style>
+    body{font-family:Arial,sans-serif;line-height:1.5;padding:70px 40px 50px;color:#162321;position:relative}
+    h1{font-size:28px}
+    h2{margin-top:28px;border-top:1px solid #ddd;padding-top:12px}
+    .pdf-watermark{position:fixed;top:42%;left:0;right:0;text-align:center;font-size:70px;font-weight:700;color:rgba(31,115,103,0.12);transform:rotate(-28deg);z-index:0}
+    .pdf-header{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px 40px;border-bottom:1px solid #ccc;font-size:13px;font-weight:700;color:#1f7367}
+    .pdf-footer{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-between;padding:10px 40px;border-top:1px solid #ccc;font-size:10px;color:#667572}
+    .content{position:relative;z-index:1}
+    @media print{@page{margin:70px 40px 50px}}
+  </style></head><body>
+    <div class="pdf-watermark">WebLens AI</div>
+    <div class="pdf-header"><span>WebLens AI — Website Intelligence Report</span><span>${generatedAt}</span></div>
+    <div class="content">
+      <h1>${sample.title}</h1><p>${sample.url ?? `https://${sample.domain}`}</p>
+      <h2>AI Summary</h2><p>${sample.summary}</p>
+      <h2>Key Points</h2><ul>${sample.points.map(point => `<li>${point}</li>`).join('')}</ul>
+      <h2>Key Topics</h2><p>${sample.topics.join(', ')}</p>
+      <h2>Target Audience</h2><p>${sample.audience}</p>
+      <h2>Page Structure</h2><p>${sample.headings.join(' | ')}</p>
+    </div>
+    <div class="pdf-footer"><span>Generated by WebLens AI — weblens.ai</span><span>Confidential research summary</span></div>
+    <script>window.onload=()=>window.print();<\/script>
+  </body></html>`);
+  printWindow.document.close();
+}
+function openAccountModal(tab = 'signup') { $('#account-modal').hidden = false; document.body.style.overflow = 'hidden'; switchAccountTab(tab); }
+function closeAccountModal() { $('#account-modal').hidden = true; document.body.style.overflow = ''; }
+function switchAccountTab(tab) {
+  document.querySelectorAll('.account-tab').forEach(button => { const active = button.dataset.tab === tab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); });
+  document.querySelectorAll('.account-form').forEach(form => { form.hidden = form.dataset.panel !== tab; });
+}
 function savedResearch() { return JSON.parse(localStorage.getItem('weblens-saved-research') ?? '[]'); }
 function saveResearch(sample) { const saved = savedResearch().filter(item => item.domain !== sample.domain); saved.unshift({ ...sample, savedAt: new Date().toISOString() }); localStorage.setItem('weblens-saved-research', JSON.stringify(saved)); renderLibrary(); const button = $('#save-analysis'); if (button) button.textContent = 'Saved'; }
 function renderLibrary(query = '') { const results = savedResearch().filter(item => `${item.domain} ${item.title} ${item.summary}`.toLowerCase().includes(query.toLowerCase())); $('#saved-list').innerHTML = results.length ? results.map((item, index) => `<div class="saved-item"><div><strong>${item.title}</strong><span>${item.domain}</span></div><button type="button" data-delete-saved="${index}">Delete</button></div>`).join('') : '<p class="library-empty">Your saved analyses will appear here.</p>'; }
@@ -42,20 +150,84 @@ modal.addEventListener('click', event => { if (event.target === modal) $('#modal
 $('#analyser-form').addEventListener('submit', async event => {
   event.preventDefault(); const input = $('#url-input'); const error = $('#form-error'); error.textContent = '';
   try { const parsed = new URL(input.value); if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Please enter a valid public webpage URL.'); } catch { error.textContent = 'Please enter a valid public webpage URL.'; return; }
-  if (remaining < 1) { error.textContent = 'You have used your 5 free analyses. Create an account to continue.'; openAccountModal(); return; }
+  const gate = checkTrialAllowed();
+  if (!gate.ok) { error.textContent = gate.message; if (gate.promptSignup) openAccountModal('signup'); return; }
   const status = $('#analysis-status'); status.hidden = false; let progress = 0; const steps = [...document.querySelectorAll('[data-step]')];
   const timer = setInterval(() => { progress = Math.min(progress + 25, 90); $('#progress-bar').style.width = `${progress}%`; $('#status-percent').textContent = `${progress}%`; steps.forEach((step, index) => step.classList.toggle('active', index <= Math.floor(progress / 25))); }, 500);
   try {
     const response = await fetch(ANALYZE_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: input.value }) });
     if (!response.ok) throw new Error('Live analysis is not connected yet. Try a demo analysis below.');
-    const analysis = await response.json(); remaining -= 1; localStorage.setItem(usageKey, remaining); updateUsage(); clearInterval(timer); $('#progress-bar').style.width = '100%'; $('#status-percent').textContent = '100%'; openDetail({ ...analysis, title: analysis.title ?? analysis.page_title, summary: analysis.summary ?? analysis.executive_summary, domain: analysis.domain ?? new URL(input.value).hostname, points: analysis.points ?? analysis.key_points ?? [], topics: analysis.topics ?? analysis.key_topics ?? [], audience: analysis.audience ?? analysis.target_audience ?? 'Not found on the webpage.', headings: analysis.headings ?? [], links: Array.isArray(analysis.links) ? analysis.links.length : 0, type: 'Live webpage' }, true);
+    const analysis = await response.json(); await recordAnalysisUsage(); clearInterval(timer); $('#progress-bar').style.width = '100%'; $('#status-percent').textContent = '100%'; openDetail({ ...analysis, title: analysis.title ?? analysis.page_title, summary: analysis.summary ?? analysis.executive_summary, domain: analysis.domain ?? new URL(input.value).hostname, points: analysis.points ?? analysis.key_points ?? [], topics: analysis.topics ?? analysis.key_topics ?? [], audience: analysis.audience ?? analysis.target_audience ?? 'Not found on the webpage.', headings: analysis.headings ?? [], links: Array.isArray(analysis.links) ? analysis.links.length : 0, type: 'Live webpage' }, true);
   } catch (requestError) { clearInterval(timer); status.hidden = true; error.textContent = requestError.message; }
 });
 $('#research-button').addEventListener('click', () => { document.querySelector('#research').scrollIntoView({ behavior: 'smooth' }); });
 $('#library-search').addEventListener('input', event => renderLibrary(event.target.value));
 $('#saved-list').addEventListener('click', event => { const button = event.target.closest('[data-delete-saved]'); if (!button) return; const saved = savedResearch(); saved.splice(Number(button.dataset.deleteSaved), 1); localStorage.setItem('weblens-saved-research', JSON.stringify(saved)); renderLibrary($('#library-search').value); });
-$('#account-close').addEventListener('click', () => { $('#account-modal').hidden = true; document.body.style.overflow = ''; });
-$('#otp-form').addEventListener('submit', async event => { event.preventDefault(); const error = $('#account-error'); error.textContent = ''; if (!SUPABASE_ANON_KEY) { error.textContent = 'Account sign-up is not configured yet.'; return; } const email = $('#email-input').value.trim(); const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, create_user: true }) }); if (!response.ok) { error.textContent = 'We could not send the code. Please try again.'; return; } $('#otp-label').hidden = false; $('#otp-input').hidden = false; $('#verify-otp').hidden = false; error.textContent = 'Code sent. Check your email.'; });
-$('#verify-otp').addEventListener('click', async () => { const error = $('#account-error'); const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: $('#email-input').value.trim(), token: $('#otp-input').value.trim(), type: 'email' }) }); if (!response.ok) { error.textContent = 'That code is not valid or has expired.'; return; } error.textContent = 'Email verified. Secure checkout will be available when billing is configured.'; $('#payment-button').disabled = false; });
+
+/* ---------- Account modal wiring ---------- */
+$('#signin-button').addEventListener('click', () => openAccountModal('signup'));
+$('#account-close').addEventListener('click', closeAccountModal);
+document.querySelectorAll('.account-tab').forEach(button => button.addEventListener('click', () => switchAccountTab(button.dataset.tab)));
+$('#signout-button').addEventListener('click', () => { setStoredSession(null); profile = null; updateAccountUI(); updateUsage(); });
+
+$('#signup-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const error = $('#signup-error'); error.textContent = '';
+  if (!SUPABASE_ANON_KEY) { error.textContent = 'Account sign-up is not configured yet.'; return; }
+  const email = $('#signup-email').value.trim();
+  const password = $('#signup-password').value;
+  const confirm = $('#signup-confirm').value;
+  if (password.length < 8) { error.textContent = 'Password must be at least 8 characters.'; return; }
+  if (password !== confirm) { error.textContent = 'Passwords do not match.'; return; }
+  const data = { mobile: $('#signup-mobile').value.trim() || null, address: $('#signup-address').value.trim() || null, pincode: $('#signup-pincode').value.trim() || null, state: $('#signup-state').value.trim() || null, country: $('#signup-country').value.trim() || null };
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, data }) });
+  if (!response.ok) { const body = await response.json().catch(() => ({})); error.textContent = body.msg || body.error_description || 'We could not create your account. Please try again.'; return; }
+  $('#signup-otp-label').hidden = false; $('#signup-otp').hidden = false; $('#signup-verify').hidden = false;
+  error.textContent = 'Code sent. Check your email to verify and finish registration.';
+});
+$('#signup-verify').addEventListener('click', async () => {
+  const error = $('#signup-error'); error.textContent = '';
+  const email = $('#signup-email').value.trim(); const token = $('#signup-otp').value.trim();
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, token, type: 'signup' }) });
+  if (!response.ok) { error.textContent = 'That code is not valid or has expired.'; return; }
+  const body = await response.json();
+  setStoredSession({ access_token: body.access_token, refresh_token: body.refresh_token, expires_at: body.expires_at, user: body.user });
+  await fetchProfile(); updateAccountUI(); updateUsage(); closeAccountModal();
+});
+$('#signin-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const error = $('#signin-error'); error.textContent = '';
+  const email = $('#signin-email').value.trim(); const password = $('#signin-password').value;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  if (!response.ok) { error.textContent = 'Incorrect email or password.'; return; }
+  const body = await response.json();
+  setStoredSession({ access_token: body.access_token, refresh_token: body.refresh_token, expires_at: body.expires_at, user: body.user });
+  await fetchProfile(); updateAccountUI(); updateUsage(); closeAccountModal();
+});
+$('#forgot-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const error = $('#forgot-error'); error.textContent = '';
+  const email = $('#forgot-email').value.trim();
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+  if (!response.ok) { error.textContent = 'We could not send a reset code. Please try again.'; return; }
+  $('#forgot-otp-label').hidden = false; $('#forgot-otp').hidden = false; $('#forgot-password-label').hidden = false; $('#forgot-password').hidden = false; $('#forgot-verify').hidden = false;
+  error.textContent = 'Reset code sent. Check your email.';
+});
+$('#forgot-verify').addEventListener('click', async () => {
+  const error = $('#forgot-error'); error.textContent = '';
+  const email = $('#forgot-email').value.trim(); const token = $('#forgot-otp').value.trim(); const newPassword = $('#forgot-password').value;
+  if (newPassword.length < 8) { error.textContent = 'Password must be at least 8 characters.'; return; }
+  const verifyResponse = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, token, type: 'recovery' }) });
+  if (!verifyResponse.ok) { error.textContent = 'That code is not valid or has expired.'; return; }
+  const verifyBody = await verifyResponse.json();
+  const updateResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, { method: 'PUT', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${verifyBody.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: newPassword }) });
+  if (!updateResponse.ok) { error.textContent = 'We could not set the new password. Please try again.'; return; }
+  setStoredSession({ access_token: verifyBody.access_token, refresh_token: verifyBody.refresh_token, expires_at: verifyBody.expires_at, user: verifyBody.user });
+  await fetchProfile(); updateAccountUI(); updateUsage();
+  error.textContent = ''; switchAccountTab('signin'); closeAccountModal();
+});
 $('#payment-button').addEventListener('click', () => { alert('Payments require a dedicated provider such as Stripe. An OpenAI API key is used for AI analysis, not payment processing.'); });
-updateUsage(); renderSamples(); renderLibrary();
+
+renderSamples(); renderLibrary(); updateUsage();
+restoreSession().then(updateUsage);
+
